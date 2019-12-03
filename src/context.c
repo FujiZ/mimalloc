@@ -4,8 +4,7 @@
 #if defined(MI_ZRPC_EXTENSION)
 #include <string.h>
 
-#include "mimalloc.h"
-#include "mimalloc-internal.h"
+#include "mimalloc-ctx.h"
 
 mi_ctx_t* mi_ctx_new(void* data, const mi_mem_hook_t* mem_hook) {
   // here we use mi_heap_malloc to allocate context object
