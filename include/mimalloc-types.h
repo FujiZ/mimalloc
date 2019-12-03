@@ -439,11 +439,11 @@ struct mi_tld_s {
 
 #if defined(MI_ZRPC_EXTENSION)
 typedef void (mi_mem_register_fun)(mi_ctx_t* ctx, mi_segment_t* segment, size_t segment_size);
-typedef void (mi_mem_unregister_fun)(mi_ctx_t* ctx, mi_segment_t* segment, size_t segment_size);
+typedef void (mi_mem_deregister_fun)(mi_ctx_t* ctx, mi_segment_t* segment, size_t segment_size);
 
 typedef struct mi_mem_hook_s {
   mi_mem_register_fun*   register_fun;    // called on segment allocation
-  mi_mem_unregister_fun* unregister_fun;  // called on segment free
+  mi_mem_deregister_fun* deregister_fun;  // called on segment free
 } mi_mem_hook_t;
 
 // Context data which includes abandon list

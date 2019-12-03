@@ -241,8 +241,8 @@ static void mi_segment_os_free(mi_segment_t* segment, size_t segment_size, mi_se
   mi_segments_track_size(-((long)segment_size),tld);
 #if defined(MI_ZRPC_EXTENSION)
   mi_ctx_t* ctx = mi_container_of(tld, mi_tld_t, segments)->ctx;
-  if (ctx->mem_hook.unregister_fun) {
-    ctx->mem_hook.unregister_fun(ctx, segment, segment_size);
+  if (ctx->mem_hook.deregister_fun) {
+    ctx->mem_hook.deregister_fun(ctx, segment, segment_size);
   }
 #endif
   if (MI_SECURE != 0) {
