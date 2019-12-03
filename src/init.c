@@ -96,12 +96,25 @@ mi_decl_thread mi_heap_t* _mi_heap_default = (mi_heap_t*)&_mi_heap_empty;
 
 #define tld_main_stats  ((mi_stats_t*)((uint8_t*)&tld_main + offsetof(mi_tld_t,stats)))
 
+// global default context
+#if defined(MI_ZRPC_EXTENSION)
+static mi_ctx_t ctx_default = {
+    ATOMIC_VAR_INIT(NULL),
+    ATOMIC_VAR_INIT(0),
+    {NULL, NULL},
+    NULL,
+};
+#endif
+
 static mi_tld_t tld_main = {
   0, false,
   &_mi_heap_main,
   { { NULL, NULL }, {NULL ,NULL}, 0, 0, 0, 0, 0, 0, NULL, tld_main_stats }, // segments
   { 0, tld_main_stats },       // os
-  { MI_STATS_NULL }            // stats
+  { MI_STATS_NULL },           // stats
+#if defined(MI_ZRPC_EXTENSION)
+  &ctx_default,
+#endif
 };
 
 mi_heap_t _mi_heap_main = {
@@ -220,6 +233,9 @@ static bool _mi_heap_init(void) {
     tld->heap_backing = heap;
     tld->segments.stats = &tld->stats;
     tld->os.stats = &tld->stats;
+#if defined(MI_ZRPC_EXTENSION)
+    tld->ctx = &ctx_default;
+#endif
     _mi_heap_set_default_direct(heap);
   }
   return false;

@@ -228,6 +228,9 @@ typedef struct mi_segment_s {
   size_t          memid;            // id for the os-level memory manager
   bool            mem_is_fixed;     // `true` if we cannot decommit/reset/protect in this memory (i.e. when allocated using large OS pages)    
   bool            mem_is_committed; // `true` if the whole segment is eagerly committed
+#if defined(MI_ZRPC_EXTENSION)
+  void*           data;             // user provided data pointer, used in memory registration
+#endif
 
   // segment fields
   struct mi_segment_s* next;   // must be the first segment field -- see `segment.c:segment_alloc`
@@ -260,6 +263,11 @@ typedef struct mi_segment_s {
 // point to an empty heap to avoid initialization checks
 // in the fast path.
 // ------------------------------------------------------
+
+#if defined(MI_ZRPC_EXTENSION)
+// Global context
+typedef struct mi_ctx_s mi_ctx_t;
+#endif
 
 // Thread local data
 typedef struct mi_tld_s mi_tld_t;
@@ -424,6 +432,31 @@ struct mi_tld_s {
   mi_segments_tld_t   segments;      // segment tld
   mi_os_tld_t         os;            // os tld
   mi_stats_t          stats;         // statistics
+#if defined(MI_ZRPC_EXTENSION)
+  mi_ctx_t*           ctx;           // global context
+#endif
 };
+
+#if defined(MI_ZRPC_EXTENSION)
+typedef void (mi_mem_register_fun)(mi_ctx_t* ctx, mi_segment_t* segment, size_t segment_size);
+typedef void (mi_mem_unregister_fun)(mi_ctx_t* ctx, mi_segment_t* segment, size_t segment_size);
+
+typedef struct mi_mem_hook_s {
+  mi_mem_register_fun*   register_fun;    // called on segment allocation
+  mi_mem_unregister_fun* unregister_fun;  // called on segment free
+} mi_mem_hook_t;
+
+// Context data which includes abandon list
+struct mi_ctx_s {
+  // When threads terminate, they can leave segments with
+  // live blocks (reached through other threads). Such segments
+  // are "abandoned" and will be reclaimed by other threads to
+  // reuse their pages and/or free them eventually
+  volatile _Atomic(mi_segment_t*) abandoned; // = NULL;
+  volatile _Atomic(uintptr_t)     abandoned_count; // = 0;
+  mi_mem_hook_t                   mem_hook; // memory registration hook = NULL;
+  void*                           data; // user provided data = NULL;
+};
+#endif
 
 #endif

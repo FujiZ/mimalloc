@@ -178,6 +178,7 @@ uint8_t* _mi_segment_page_start(const mi_segment_t* segment, const mi_page_t* pa
   return p;
 }
 
+// TODO FujiZ: should segment size change if we add one void* field in mi_segment_t?
 static size_t mi_segment_size(size_t capacity, size_t required, size_t* pre_size, size_t* info_size) {
   /*
   if (mi_option_is_enabled(mi_option_secure)) {
@@ -186,7 +187,17 @@ static size_t mi_segment_size(size_t capacity, size_t required, size_t* pre_size
     capacity = MI_SMALL_PAGES_PER_SEGMENT;
   }
   */
+#if defined(MI_ZRPC_EXTENSION)
+  /**
+   * padding is 8 bytes after data field is added to mi_segment_t.
+   * sizeof(mi_page_t) == 96, which is 01100000 base 2;
+   * before: sizeof(mi_segment_t) == 208, which is 11010000 base 2;
+   * after:  sizeof(mi_segment_t) == 216, which is 11011000 base 2;
+   */
+  const size_t minsize   = sizeof(mi_segment_t) + ((capacity - 1) * sizeof(mi_page_t)) + 8 /* padding */;
+#else
   const size_t minsize   = sizeof(mi_segment_t) + ((capacity - 1) * sizeof(mi_page_t)) + 16 /* padding */;
+#endif
   size_t guardsize = 0;
   size_t isize     = 0;
 
@@ -228,6 +239,12 @@ static void mi_segments_track_size(long segment_size, mi_segments_tld_t* tld) {
 static void mi_segment_os_free(mi_segment_t* segment, size_t segment_size, mi_segments_tld_t* tld) {
   segment->thread_id = 0;
   mi_segments_track_size(-((long)segment_size),tld);
+#if defined(MI_ZRPC_EXTENSION)
+  mi_ctx_t* ctx = mi_container_of(tld, mi_tld_t, segments)->ctx;
+  if (ctx->mem_hook.unregister_fun) {
+    ctx->mem_hook.unregister_fun(ctx, segment, segment_size);
+  }
+#endif
   if (MI_SECURE != 0) {
     mi_assert_internal(!segment->mem_is_fixed);
     _mi_mem_unprotect(segment, segment->segment_size); // ensure no more guard pages are set
@@ -370,6 +387,12 @@ static mi_segment_t* mi_segment_alloc(size_t required, mi_page_kind_t page_kind,
     segment->mem_is_fixed = mem_large;
     segment->mem_is_committed = commit;
     mi_segments_track_size((long)segment_size, tld);
+#if defined(MI_ZRPC_EXTENSION)
+    mi_ctx_t* ctx = mi_container_of(tld, mi_tld_t, segments)->ctx;
+    if (ctx->mem_hook.register_fun) {
+      ctx->mem_hook.register_fun(ctx, segment, segment_size);
+    }
+#endif
   }
   mi_assert_internal(segment != NULL && (uintptr_t)segment % MI_SEGMENT_SIZE == 0);
 
@@ -551,12 +574,15 @@ void _mi_segment_page_free(mi_page_t* page, bool force, mi_segments_tld_t* tld)
    Abandonment
 ----------------------------------------------------------- */
 
+// abandoned list is in context when zrpc extension is enabled
+#if !defined(MI_ZRPC_EXTENSION)
 // When threads terminate, they can leave segments with
 // live blocks (reached through other threads). Such segments
 // are "abandoned" and will be reclaimed by other threads to
 // reuse their pages and/or free them eventually
 static volatile _Atomic(mi_segment_t*) abandoned; // = NULL;
 static volatile _Atomic(uintptr_t)     abandoned_count; // = 0;
+#endif
 
 static void mi_segment_abandon(mi_segment_t* segment, mi_segments_tld_t* tld) {
   mi_assert_internal(segment->used == segment->abandoned);
@@ -573,11 +599,22 @@ static void mi_segment_abandon(mi_segment_t* segment, mi_segments_tld_t* tld) {
   mi_segments_track_size(-((long)segment->segment_size), tld);
   segment->thread_id = 0;
   mi_segment_t* next;
+#if defined(MI_ZRPC_EXTENSION)
+  // ctx will point to the global ctx if MI_ZRPC_EXTENSION is enabled
+  mi_ctx_t* ctx = mi_container_of(tld, mi_tld_t, segments)->ctx;
+  mi_assert_internal(ctx != NULL);
+  do {
+    next = (mi_segment_t*)mi_atomic_read_ptr_relaxed(mi_atomic_cast(void*,&ctx->abandoned));
+    mi_atomic_write_ptr(mi_atomic_cast(void*,&segment->abandoned_next), next);
+  } while (!mi_atomic_cas_ptr_weak(mi_atomic_cast(void*,&ctx->abandoned), segment, next));
+  mi_atomic_increment(&ctx->abandoned_count);
+#else
   do {
     next = (mi_segment_t*)mi_atomic_read_ptr_relaxed(mi_atomic_cast(void*,&abandoned));
     mi_atomic_write_ptr(mi_atomic_cast(void*,&segment->abandoned_next), next);
   } while (!mi_atomic_cas_ptr_weak(mi_atomic_cast(void*,&abandoned), segment, next));
   mi_atomic_increment(&abandoned_count);
+#endif
 }
 
 void _mi_segment_page_abandon(mi_page_t* page, mi_segments_tld_t* tld) {
@@ -596,6 +633,19 @@ void _mi_segment_page_abandon(mi_page_t* page, mi_segments_tld_t* tld) {
 bool _mi_segment_try_reclaim_abandoned( mi_heap_t* heap, bool try_all, mi_segments_tld_t* tld) {
   uintptr_t reclaimed = 0;
   uintptr_t atmost;
+#if defined(MI_ZRPC_EXTENSION)
+  mi_ctx_t* ctx = mi_container_of(tld, mi_tld_t, segments)->ctx;
+  mi_assert_internal(ctx != NULL);
+#endif
+#if defined(MI_ZRPC_EXTENSION)
+  if (try_all) {
+    atmost = ctx->abandoned_count + 16;   // close enough
+  }
+  else {
+    atmost = ctx->abandoned_count / 8;    // at most 1/8th of all outstanding (estimated)
+    if (atmost < 8) atmost = 8;    // but at least 8
+  }
+#else
   if (try_all) {
     atmost = abandoned_count+16;   // close enough
   }
@@ -603,18 +653,26 @@ bool _mi_segment_try_reclaim_abandoned( mi_heap_t* heap, bool try_all, mi_segmen
     atmost = abandoned_count/8;    // at most 1/8th of all outstanding (estimated)
     if (atmost < 8) atmost = 8;    // but at least 8
   }
-
+#endif
   // for `atmost` `reclaimed` abandoned segments...
   while(atmost > reclaimed) {
     // try to claim the head of the abandoned segments
     mi_segment_t* segment;
+#if defined(MI_ZRPC_EXTENSION)
+    do {
+      segment = (mi_segment_t*)ctx->abandoned;
+    } while(segment != NULL && !mi_atomic_cas_ptr_weak(mi_atomic_cast(void*,&ctx->abandoned),(mi_segment_t*)segment->abandoned_next, segment));
+    if (segment==NULL) break; // stop early if no more segments available
+    // got it.
+    mi_atomic_decrement(&ctx->abandoned_count);
+#else
     do {
       segment = (mi_segment_t*)abandoned;
     } while(segment != NULL && !mi_atomic_cas_ptr_weak(mi_atomic_cast(void*,&abandoned), (mi_segment_t*)segment->abandoned_next, segment));
     if (segment==NULL) break; // stop early if no more segments available
-
     // got it.
     mi_atomic_decrement(&abandoned_count);
+#endif
     segment->thread_id = _mi_thread_id();
     segment->abandoned_next = NULL;
     mi_segments_track_size((long)segment->segment_size,tld);

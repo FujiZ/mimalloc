@@ -4,7 +4,7 @@ include("cmake/mimalloc-config-version.cmake")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-option(MI_OVERRIDE          "Override the standard malloc interface" ON)
+option(MI_OVERRIDE          "Override the standard malloc interface" OFF)
 option(MI_INTERPOSE         "Use interpose to override standard malloc on macOS" ON)
 option(MI_DEBUG_FULL        "Use full internal heap invariant checking in DEBUG mode" OFF)
 option(MI_SECURE            "Use full security mitigations (like guard pages, allocation randomization, double-free mitigation, and free-list corruption detection)" OFF)
@@ -13,6 +13,7 @@ option(MI_SEE_ASM           "Generate assembly files" OFF)
 option(MI_LOCAL_DYNAMIC_TLS "Use slightly slower, dlopen-compatible TLS mechanism (Unix)" OFF)
 option(MI_BUILD_TESTS       "Build test executables" ON)
 option(MI_CHECK_FULL        "Use full internal invariant checking in DEBUG mode (deprecated, use MI_DEBUG_FULL instead)" OFF)
+option(MI_ZRPC_EXTENSION    "Enable mi_context and memory registration hook for zRPC" ON)
 
 set(mi_sources
     src/stats.c
@@ -23,6 +24,7 @@ set(mi_sources
     src/alloc.c
     src/alloc-aligned.c
     src/alloc-posix.c
+    src/context.c
     src/heap.c
     src/options.c
     src/init.c)
@@ -72,6 +74,11 @@ endif()
 if(MI_SECURE MATCHES "ON")
   message(STATUS "Set full secure build (MI_SECURE=ON)")
   list(APPEND mi_defines MI_SECURE=4)
+endif()
+
+if(MI_ZRPC_EXTENSION MATCHES "ON")
+  message(STATUS "Use zRPC extenstion (MI_ZRPC_EXTENSTION=ON)")
+  list(APPEND mi_defines MI_ZRPC_EXTENSION)
 endif()
 
 if(MI_SEE_ASM MATCHES "ON")
