@@ -13,7 +13,7 @@ option(MI_SEE_ASM           "Generate assembly files" OFF)
 option(MI_LOCAL_DYNAMIC_TLS "Use slightly slower, dlopen-compatible TLS mechanism (Unix)" OFF)
 option(MI_BUILD_TESTS       "Build test executables" ON)
 option(MI_CHECK_FULL        "Use full internal invariant checking in DEBUG mode (deprecated, use MI_DEBUG_FULL instead)" OFF)
-option(MI_ZRPC_EXTENSION    "Enable mi_context and memory registration hook for zRPC" ON)
+option(MI_ZRPC_EXTENSION    "Enable mi_ctx and memory registration hook for zRPC" ON)
 
 set(mi_sources
     src/stats.c
@@ -24,7 +24,7 @@ set(mi_sources
     src/alloc.c
     src/alloc-aligned.c
     src/alloc-posix.c
-    src/context.c
+    src/ctx.c
     src/heap.c
     src/options.c
     src/init.c)
