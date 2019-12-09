@@ -4,7 +4,7 @@ include("cmake/mimalloc-config-version.cmake")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-option(MI_OVERRIDE          "Override the standard malloc interface" OFF)
+option(MI_OVERRIDE          "Override the standard malloc interface" ON)
 option(MI_INTERPOSE         "Use interpose to override standard malloc on macOS" ON)
 option(MI_DEBUG_FULL        "Use full internal heap invariant checking in DEBUG mode" OFF)
 option(MI_SECURE            "Use full security mitigations (like guard pages, allocation randomization, double-free mitigation, and free-list corruption detection)" OFF)
@@ -155,7 +155,12 @@ message(STATUS "")
 # shared library
 add_library(mimalloc SHARED ${mi_sources})
 set_target_properties(mimalloc PROPERTIES VERSION ${mi_version} OUTPUT_NAME ${mi_basename} )
-target_compile_definitions(mimalloc PRIVATE ${mi_defines} MI_SHARED_LIB MI_SHARED_LIB_EXPORT)
+if(MI_ZRPC_EXTENSION MATCHES "ON")
+  # export definations when zrpc is enabled
+  target_compile_definitions(mimalloc PUBLIC ${mi_defines} MI_SHARED_LIB MI_SHARED_LIB_EXPORT)
+else()
+  target_compile_definitions(mimalloc PRIVATE ${mi_defines} MI_SHARED_LIB MI_SHARED_LIB_EXPORT)
+endif()
 target_compile_options(mimalloc PRIVATE ${mi_cflags})
 target_link_libraries(mimalloc PUBLIC ${mi_libraries})
 target_include_directories(mimalloc PUBLIC
@@ -172,7 +177,12 @@ endif()
 
 # static library
 add_library(mimalloc-static STATIC ${mi_sources})
-target_compile_definitions(mimalloc-static PRIVATE ${mi_defines} MI_STATIC_LIB)
+if(MI_ZRPC_EXTENSION MATCHES "ON")
+  # export definations when zrpc is enabled
+  target_compile_definitions(mimalloc-static PUBLIC ${mi_defines} MI_STATIC_LIB)
+else()
+  target_compile_definitions(mimalloc-static PRIVATE ${mi_defines} MI_STATIC_LIB)
+endif()
 target_compile_options(mimalloc-static PRIVATE ${mi_cflags})
 target_link_libraries(mimalloc-static PUBLIC ${mi_libraries})
 target_include_directories(mimalloc-static PUBLIC
