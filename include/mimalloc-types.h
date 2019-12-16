@@ -454,6 +454,7 @@ struct mi_ctx_s {
   // reuse their pages and/or free them eventually
   volatile _Atomic(mi_segment_t*) abandoned; // = NULL;
   volatile _Atomic(uintptr_t)     abandoned_count; // = 0;
+  volatile _Atomic(uintptr_t)     thread_count; // = 1 on ctx creation;
   mi_mem_hook_t                   mem_hook; // memory registration hook = NULL;
   void*                           data; // user provided data = NULL;
 };

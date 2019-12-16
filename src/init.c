@@ -101,6 +101,7 @@ mi_decl_thread mi_heap_t* _mi_heap_default = (mi_heap_t*)&_mi_heap_empty;
 static mi_ctx_t ctx_default = {
     ATOMIC_VAR_INIT(NULL),
     ATOMIC_VAR_INIT(0),
+    ATOMIC_VAR_INIT(1),
     {NULL, NULL},
     NULL,
 };
