@@ -457,6 +457,7 @@ struct mi_ctx_s {
   volatile _Atomic(uintptr_t)     thread_count; // = 1 on ctx creation;
   mi_mem_hook_t                   mem_hook; // memory registration hook = NULL;
   void*                           data; // user provided data = NULL;
+  bool                            mem_huge; // true if we want to use huge page
 };
 #endif
 

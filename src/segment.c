@@ -374,7 +374,13 @@ static mi_segment_t* mi_segment_alloc(size_t required, mi_page_kind_t page_kind,
   else {
     // Allocate the segment from the OS
     size_t memid;
-    bool   mem_large = (!eager_delay && (MI_SECURE==0)); // only allow large OS pages once we are no longer lazy    
+#if defined(MI_ZRPC_EXTENSION)
+    mi_ctx_t* ctx = mi_container_of(tld, mi_tld_t, segments)->ctx;
+    // only allow large OS pages once we are no longer lazy and we mem_huge is enabled in ctx
+    bool mem_large = (ctx->mem_huge && !eager_delay && (MI_SECURE==0));
+#else
+    bool mem_large = (!eager_delay && (MI_SECURE==0)); // only allow large OS pages once we are no longer lazy
+#endif
     segment = (mi_segment_t*)_mi_mem_alloc_aligned(segment_size, MI_SEGMENT_SIZE, &commit, &mem_large, &is_zero, &memid, os_tld);
     if (segment == NULL) return NULL;  // failed to allocate
     if (!commit) {
@@ -388,7 +394,6 @@ static mi_segment_t* mi_segment_alloc(size_t required, mi_page_kind_t page_kind,
     segment->mem_is_committed = commit;
     mi_segments_track_size((long)segment_size, tld);
 #if defined(MI_ZRPC_EXTENSION)
-    mi_ctx_t* ctx = mi_container_of(tld, mi_tld_t, segments)->ctx;
     if (ctx->mem_hook.register_fun) {
       ctx->mem_hook.register_fun(ctx, segment, segment_size);
     }

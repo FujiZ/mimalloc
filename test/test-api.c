@@ -61,7 +61,8 @@ static int failed = 0;
 // ---------------------------------------------------------------------------
 bool test_heap1();
 bool test_heap2();
-bool test_ctx();
+bool test_ctx1();
+bool test_ctx2();
 
 // ---------------------------------------------------------------------------
 // Main testing
@@ -139,7 +140,12 @@ int main() {
   // ---------------------------------------------------
   CHECK("heap_destroy", test_heap1());
   CHECK("heap_delete", test_heap2());
-  CHECK("ctx_delete", test_ctx());
+
+  // ---------------------------------------------------
+  // Contexts
+  // ---------------------------------------------------
+  CHECK("ctx_delete", test_ctx1());
+  CHECK("ctx_hugepage", test_ctx2());
 
   //mi_stats_print(NULL);
 
@@ -188,8 +194,22 @@ bool test_heap2() {
 #if defined(MI_ZRPC_EXTENSION)
 #include "mimalloc-ctx.h"
 
-bool test_ctx() {
-  mi_ctx_t* ctx = mi_ctx_new(NULL, NULL);
+bool test_ctx1() {
+  mi_ctx_t* ctx = mi_ctx_new(NULL, NULL, false);
+  mi_heap_t* heap = mi_ctx_thread_init(ctx);
+  int* p1 = mi_heap_malloc_tp(heap, int);
+  int* p2 = mi_heap_malloc_tp(heap, int);
+  *p1 = 42;
+  mi_free(p1);
+  mi_free(p2);
+  // call mi_ctx_delete() before thread_done() to test refcount
+  mi_ctx_delete(ctx);
+  mi_ctx_thread_done(heap);
+  return true;
+}
+
+bool test_ctx2() {
+  mi_ctx_t* ctx = mi_ctx_new(NULL, NULL, true);
   mi_heap_t* heap = mi_ctx_thread_init(ctx);
   int* p1 = mi_heap_malloc_tp(heap, int);
   int* p2 = mi_heap_malloc_tp(heap, int);
@@ -202,5 +222,6 @@ bool test_ctx() {
   return true;
 }
 #else
-bool test_ctx() { return true; }
+bool test_ctx1() { return true; }
+bool test_ctx2() { return true; }
 #endif

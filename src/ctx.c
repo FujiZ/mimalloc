@@ -11,7 +11,7 @@ static mi_mem_hook_t mi_mem_hook_empty = {
     NULL,
 };
 
-mi_ctx_t* mi_ctx_new(void* data, const mi_mem_hook_t* mem_hook) {
+mi_ctx_t* mi_ctx_new(void* data, const mi_mem_hook_t* mem_hook, bool mem_huge) {
   // here we use mi_heap_malloc to allocate context object
   mi_ctx_t* ctx = mi_malloc_tp(mi_ctx_t);
   if (!ctx) return NULL;
@@ -20,6 +20,7 @@ mi_ctx_t* mi_ctx_new(void* data, const mi_mem_hook_t* mem_hook) {
   ctx->thread_count = ATOMIC_VAR_INIT(1);
   ctx->mem_hook = mem_hook ? *mem_hook : mi_mem_hook_empty;
   ctx->data = data;
+  ctx->mem_huge = mem_huge;
   return ctx;
 }
 

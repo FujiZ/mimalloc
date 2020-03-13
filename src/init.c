@@ -104,6 +104,7 @@ static mi_ctx_t ctx_default = {
     ATOMIC_VAR_INIT(1),
     {NULL, NULL},
     NULL,
+    false,
 };
 #endif
 
