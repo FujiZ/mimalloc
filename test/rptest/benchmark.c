@@ -6,7 +6,7 @@
 #include "mimalloc-ctx.h"
 #include "benchmark.h"
 
-static const char* dev_name = "rocep8s0";
+static const char* dev_name = "mlx5_1";
 static struct ibv_context* ibv_ctx = NULL;
 static struct ibv_pd* ibv_pd = NULL;
 static mi_ctx_t* mi_ctx = NULL;
@@ -69,10 +69,15 @@ benchmark_thread_finalize(void) {
 
 void*
 benchmark_malloc(size_t alignment, size_t size) {
-  if (alignment != 0)
-    return mi_heap_malloc_aligned(mi_heap, size, alignment);
-  else
-    return mi_heap_malloc(mi_heap, size);
+  // memset/calloc to ensure the memory is touched!
+  if (alignment != 0) {
+    void* ptr = mi_heap_malloc_aligned(mi_heap, size, alignment);
+    if (ptr != NULL) memset(ptr, 0xCD, size);
+    return ptr;
+  }
+  else {
+    return mi_heap_calloc(mi_heap, 1, size);
+  }
 }
 
 extern void
