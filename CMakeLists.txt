@@ -260,7 +260,7 @@ if (MI_BUILD_TESTS MATCHES "ON")
           test/rptest/thread.c
           test/rptest/timer.c
   )
-  target_link_libraries(mimalloc-test-rptest PRIVATE mimalloc-static ibverbs)
+  target_link_libraries(mimalloc-test-rptest PRIVATE mimalloc ibverbs m)
 
   enable_testing()
   add_test(test_api, mimalloc-test-api)
