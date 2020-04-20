@@ -69,7 +69,7 @@ benchmark_thread_finalize(void) {
 
 void*
 benchmark_malloc(size_t alignment, size_t size) {
-  return mi_heap_malloc(mi_heap, size);
+  return mi_heap_malloc_aligned(mi_heap, size, alignment);
 }
 
 extern void
